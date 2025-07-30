@@ -1,0 +1,30 @@
+{
+  "10701": {
+    "fabrikant": "https://www.shimano.com/nl/products/cycling/",
+    "externe_verkoper": "https://www.bike-components.nl/nl/Shimano/"
+  },
+  "10705": {
+    "fabrikant": "https://www.sram.com/nl/",
+    "externe_verkoper": "https://www.bike-components.nl/nl/SRAM/"
+  },
+  "10708": {
+    "fabrikant": "https://www.campagnolo.com/nl/",
+    "externe_verkoper": "https://www.bike-components.nl/nl/Campagnolo/"
+  },
+  "10709": {
+    "fabrikant": "https://www.michelin.com/nl/",
+    "externe_verkoper": "https://www.bike-components.nl/nl/Michelin/"
+  },
+  "10710": {
+    "fabrikant": "https://www.continental-tires.com/nl/",
+    "externe_verkoper": "https://www.bike-components.nl/nl/Continental/"
+  },
+  "10716": {
+    "fabrikant": "https://www.bosch-ebike.com/nl/",
+    "externe_verkoper": "https://www.bike-components.nl/nl/Bosch/"
+  },
+  "10717": {
+    "fabrikant": "https://www.brose-ebike.com/nl/",
+    "externe_verkoper": "https://www.bike-components.nl/nl/Brose/"
+  }
+} 
