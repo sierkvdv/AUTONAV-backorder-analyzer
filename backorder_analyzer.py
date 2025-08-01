@@ -84,33 +84,87 @@ def load_navision_data(file_path):
     try:
         df = pd.read_excel(file_path)
         logging.info(f"Data geladen: {len(df)} rijen, {len(df.columns)} kolommen")
+        
+        # Debug: Check voor negatieve quantities
+        if 'QUANTITY' in df.columns:
+            negative_quantities = df[df['QUANTITY'] < 0]
+            if len(negative_quantities) > 0:
+                logging.warning(f"⚠️  GEVONDEN: {len(negative_quantities)} rijen met negatieve QUANTITY waarden!")
+                logging.warning(f"Voorbeelden: {negative_quantities[['DOCUMENT_ID', 'TYPE_ID', 'QUANTITY', 'AVAILABLE_STOCK']].head().to_dict('records')}")
+        
         return df
     except Exception as e:
         logging.error(f"Fout bij laden van bestand: {e}")
         raise
 
 def validate_columns(df):
-    """Valideer of alle verplichte kolommen aanwezig zijn."""
+    """Valideer en map kolommen naar het verwachte formaat."""
+    logging.info(f"Beschikbare kolommen: {list(df.columns)}")
+    
+    # Kolom mapping voor jouw Excel formaat
+    column_mapping = {
+        'DOCUMENT_ID': 'Sales Order No.',
+        'SELL_TO_CUSTOMER_ID': 'Customer Name', 
+        'TYPE_ID': 'Item No.',
+        'QUANTITY': 'Quantity',
+        'AVAILABLE_STOCK': 'Quantity Available'
+    }
+    
+    # Verwijder ITEM_ID kolom als die bestaat (omdat we TYPE_ID gebruiken)
+    if 'ITEM_ID' in df.columns:
+        df = df.drop(columns=['ITEM_ID'])
+        logging.info("ITEM_ID kolom verwijderd (gebruik TYPE_ID)")
+    
+    # Hernoem kolommen volgens mapping
+    for old_col, new_col in column_mapping.items():
+        if old_col in df.columns:
+            df = df.rename(columns={old_col: new_col})
+            logging.info(f"Kolom hernoemd: {old_col} -> {new_col}")
+    
+    # Voeg ontbrekende kolommen toe met default waarden (na hernoeming)
+    df['Description'] = 'Artikel ' + df['Item No.'].astype(str)
+    df['Location Code'] = 'DSV'  # Default locatie
+    df['Fully Reserved'] = 'No'  # Default waarde
+    df['Order Status'] = 'Backorder'  # Default status
+    
+    # Controleer of alle verplichte kolommen nu aanwezig zijn
     missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
     if missing_columns:
-        raise ValueError(f"Ontbrekende kolommen: {missing_columns}")
-    logging.info("Alle verplichte kolommen aanwezig")
+        logging.warning(f"Ontbrekende kolommen na mapping: {missing_columns}")
+        # Voeg ontbrekende kolommen toe met default waarden
+        for col in missing_columns:
+            if col == 'Description':
+                df[col] = 'Artikel ' + df['Item No.'].astype(str)
+            elif col == 'Location Code':
+                df[col] = 'DSV'
+            elif col == 'Fully Reserved':
+                df[col] = 'No'
+            elif col == 'Order Status':
+                df[col] = 'Backorder'
+            else:
+                df[col] = ''
+    
+    logging.info("Kolom mapping voltooid")
+    return df
 
 def filter_backorder_data(df):
     """Filter de data op basis van de criteria."""
     original_count = len(df)
     
-    # Filter op Location Code
-    df = df[df['Location Code'] == LOCATION_CODE]
-    logging.info(f"Na Location Code filter ({LOCATION_CODE}): {len(df)} rijen")
+    # Filter op Location Code (alleen als niet leeg)
+    if LOCATION_CODE:
+        df = df[df['Location Code'] == LOCATION_CODE]
+        logging.info(f"Na Location Code filter ({LOCATION_CODE}): {len(df)} rijen")
     
-    # Filter op Fully Reserved
-    df = df[df['Fully Reserved'] == FULLY_RESERVED]
-    logging.info(f"Na Fully Reserved filter ({FULLY_RESERVED}): {len(df)} rijen")
+    # Filter op Fully Reserved (alleen als niet leeg)
+    if FULLY_RESERVED:
+        df = df[df['Fully Reserved'] == FULLY_RESERVED]
+        logging.info(f"Na Fully Reserved filter ({FULLY_RESERVED}): {len(df)} rijen")
     
-    # Filter op Order Status
-    df = df[df['Order Status'] == ORDER_STATUS]
-    logging.info(f"Na Order Status filter ({ORDER_STATUS}): {len(df)} rijen")
+    # Filter op Order Status (alleen als niet leeg)
+    if ORDER_STATUS:
+        df = df[df['Order Status'] == ORDER_STATUS]
+        logging.info(f"Na Order Status filter ({ORDER_STATUS}): {len(df)} rijen")
     
     logging.info(f"Filtering voltooid: {original_count} -> {len(df)} rijen")
     return df
@@ -119,32 +173,28 @@ def categorize_backorder_items(df):
     """Categoriseer backorder artikelen in de drie categorieën."""
     def get_category(item_no):
         if category_manager:
-            return category_manager.get_category_for_item(item_no)
+            category = category_manager.get_category_for_item(item_no)
+            # Als CategoryManager geen categorie heeft (None), gebruik dan geen categorie
+            if category is None:
+                return None
+            return category
         else:
-            # Fallback naar config.py categorieën
-            if item_no in CATEGORY_1_ITEMS:
-                return 1
-            elif item_no in CATEGORY_2_ITEMS:
-                return 2
-            elif item_no in CATEGORY_3_ITEMS:
-                return 3
-            else:
-                return 2  # Default naar categorie 2
+            # Geen CategoryManager beschikbaar - alle artikelen krijgen geen categorie
+            return None
     
     # Voeg categorie toe aan DataFrame
     df['Category'] = df['Item No.'].apply(get_category)
     
-    # Bepaal categorie namen
-    if category_manager:
-        df['Category_Name'] = df['Category'].apply(lambda x: category_manager.get_category_name(x))
-        df['Category_Action'] = df['Category'].apply(lambda x: category_manager.get_category_action(x))
-    else:
-        df['Category_Name'] = df['Category'].map({1: CATEGORIES[1]['name'], 
-                                                 2: CATEGORIES[2]['name'], 
-                                                 3: CATEGORIES[3]['name']})
-        df['Category_Action'] = df['Category'].map({1: CATEGORIES[1].get('action', 'Onbekend'), 
-                                                   2: CATEGORIES[2].get('action', 'Onbekend'), 
-                                                   3: CATEGORIES[3].get('action', 'Onbekend')})
+    # Bepaal categorie namen en acties
+    df['Category_Name'] = df['Category'].apply(lambda x: 
+        category_manager.get_category_name(x) if category_manager and x is not None 
+        else 'Geen categorie'
+    )
+    
+    df['Category_Action'] = df['Category'].apply(lambda x: 
+        category_manager.get_category_action(x) if category_manager and x is not None 
+        else 'Behoud backorder'
+    )
     
     return df
 
@@ -157,8 +207,42 @@ def group_by_sales_order(df):
         customer_name = order_data['Customer Name'].iloc[0]
         
         # Split in verzendbaar en backorder
-        sendable = order_data[order_data['Quantity Available'] > 0]
-        backorder = order_data[order_data['Quantity Available'] == 0]
+        # Gebruik pandas.isna() om NaN waarden te controleren
+        sendable = order_data[(order_data['Quantity Available'] > 0) & (~order_data['Quantity Available'].isna())]
+        # Backorder: 0, negatieve waarden, of NaN
+        backorder = order_data[(order_data['Quantity Available'] <= 0) | (order_data['Quantity Available'].isna())]
+        
+        # Check voor BA/HP artikelen (batterijen/fietsen) - deze mogen gewoon als backorder blijven
+        # Converteer naar string en check veilig
+        ba_hp_items = backorder[backorder['Item No.'].astype(str).str.startswith(('BA', 'HP'), na=False)]
+        if len(ba_hp_items) > 0:
+            logging.info(f"Order {order_no} bevat {len(ba_hp_items)} BA/HP artikelen (batterijen/fietsen) - deze blijven als normale backorder")
+        
+        # Als er 0 verzendbaar en 0 backorder zijn, check dan voor BA/HP nummers
+        if len(sendable) == 0 and len(backorder) == 0:
+            # Check of er BA/HP nummers in de hele order zitten
+            all_ba_hp = order_data[order_data['Item No.'].astype(str).str.startswith(('BA', 'HP'), na=False)]
+            if len(all_ba_hp) > 0:
+                logging.info(f"Order {order_no} bevat alleen BA/HP artikelen (fiets/batterij) - niet aanpassen")
+                # Markeer als speciale categorie voor Excel output
+                grouped_data[order_no] = {
+                    'customer': customer_name,
+                    'sendable': sendable,
+                    'backorder': backorder,
+                    'total_items': len(order_data),
+                    'sendable_count': len(sendable),
+                    'backorder_count': len(backorder),
+                    'is_bike_battery': True
+                }
+                continue
+        
+        # Debug: Check voor onmogelijke situaties
+        if len(sendable) == 0 and len(backorder) == 0:
+            logging.warning(f"Order {order_no} heeft geen verzendbare of backorder artikelen!")
+            logging.warning(f"Order data: {order_data[['Item No.', 'Quantity', 'Quantity Available']].to_dict('records')}")
+            # Forceer alle artikelen als backorder als er geen verzendbare of backorder zijn
+            backorder = order_data.copy()
+            logging.info(f"Order {order_no}: Alle artikelen geforceerd als backorder")
         
         # Categoriseer backorder artikelen
         if len(backorder) > 0:
@@ -188,7 +272,7 @@ def generate_email_content(item_data, category):
     email_data = {
         'customer_name': item_data['Customer Name'],
         'item_no': item_data['Item No.'],
-        'item_description': item_data['Description'],
+        'item_description': item_data.get('Description', f'Artikel {item_data["Item No."]}'),
         'order_no': item_data['Sales Order No.'],
         'quantity': item_data['Quantity']
     }
@@ -273,12 +357,34 @@ def create_excel_workbook(grouped_data):
     for order_no, order_info in grouped_data.items():
         customer = order_info['customer']
         
-        # Order header
-        ws.cell(row=current_row, column=1, value=f"Order: {order_no}")
-        ws.cell(row=current_row, column=2, value=f"Klant: {customer}")
-        ws.cell(row=current_row, column=3, value=f"Totaal: {order_info['total_items']}")
-        ws.cell(row=current_row, column=4, value=f"Verzendbaar: {order_info['sendable_count']}")
-        ws.cell(row=current_row, column=5, value=f"Backorder: {order_info['backorder_count']}")
+        # Check voor fiets/batterij orders
+        if order_info.get('is_bike_battery', False):
+            ws.cell(row=current_row, column=1, value=f"Order: {order_no}")
+            ws.cell(row=current_row, column=2, value=f"Klant: {customer}")
+            ws.cell(row=current_row, column=3, value="🚲 FIETS/BATTERIJ ORDER")
+            ws.cell(row=current_row, column=4, value="NIET AANPASSEN")
+            ws.cell(row=current_row, column=5, value="")
+            
+            # Styling voor fiets/batterij order
+            for col in range(1, 6):
+                cell = ws.cell(row=current_row, column=col)
+                cell.fill = PatternFill(start_color="FFD700", end_color="FFD700", fill_type='solid')  # Goud
+                cell.font = Font(bold=True)
+                cell.border = thin_border
+        else:
+            # Normale order header
+            ws.cell(row=current_row, column=1, value=f"Order: {order_no}")
+            ws.cell(row=current_row, column=2, value=f"Klant: {customer}")
+            ws.cell(row=current_row, column=3, value=f"Totaal: {order_info['total_items']}")
+            ws.cell(row=current_row, column=4, value=f"Verzendbaar: {order_info['sendable_count']}")
+            ws.cell(row=current_row, column=5, value=f"Backorder: {order_info['backorder_count']}")
+            
+            # Styling voor normale order header
+            for col in range(1, 6):
+                cell = ws.cell(row=current_row, column=col)
+                cell.fill = colors['order_header']
+                cell.font = Font(bold=True)
+                cell.border = thin_border
         
         # Styling voor order header
         for col in range(1, 6):
@@ -288,6 +394,11 @@ def create_excel_workbook(grouped_data):
             cell.border = thin_border
         
         current_row += 1
+        
+        # Skip verdere verwerking voor fiets/batterij orders
+        if order_info.get('is_bike_battery', False):
+            current_row += 1  # Extra ruimte
+            continue
         
         # Verzendbare artikelen
         if len(order_info['sendable']) > 0:
@@ -308,7 +419,9 @@ def create_excel_workbook(grouped_data):
             # Verzendbare artikelen data
             for _, item in order_info['sendable'].iterrows():
                 ws.cell(row=current_row, column=1, value=item['Item No.'])
-                ws.cell(row=current_row, column=2, value=item['Description'])
+                # Fallback voor Description als deze niet beschikbaar is
+                description = item.get('Description', f'Artikel {item["Item No."]}')
+                ws.cell(row=current_row, column=2, value=description)
                 ws.cell(row=current_row, column=3, value=item['Quantity'])
                 ws.cell(row=current_row, column=4, value=item['Quantity Available'])
                 
@@ -341,25 +454,24 @@ def create_excel_workbook(grouped_data):
                 category_name = item['Category_Name']
                 
                 ws.cell(row=current_row, column=1, value=item['Item No.'])
-                ws.cell(row=current_row, column=2, value=item['Description'])
+                # Fallback voor Description als deze niet beschikbaar is
+                description = item.get('Description', f'Artikel {item["Item No."]}')
+                ws.cell(row=current_row, column=2, value=description)
                 ws.cell(row=current_row, column=3, value=item['Quantity'])
                 ws.cell(row=current_row, column=4, value=item['Quantity Available'])
                 ws.cell(row=current_row, column=5, value=category_name)
                 
-                # Actie kolom
-                if category == 1:
-                    action = "Verwijder + E-mail naar fabrikant"
-                elif category == 2:
-                    action = "Behoud backorder"
-                elif category == 3:
-                    action = "Verwijder + E-mail naar externe verkoper"
-                else:
-                    action = "Onbekend"
-                
+                # Actie kolom - gebruik de actie uit de data
+                action = item.get('Category_Action', 'Behoud backorder')
                 ws.cell(row=current_row, column=6, value=action)
                 
                 # Styling met categorie kleur
-                category_color = colors[f'category_{category}']
+                if category is not None:
+                    category_color = colors[f'category_{category}']
+                else:
+                    # Default kleur voor artikelen zonder categorie
+                    category_color = colors['backorder']
+                
                 for col in range(1, 7):
                     cell = ws.cell(row=current_row, column=col)
                     cell.fill = category_color
@@ -425,7 +537,7 @@ def save_email_report(email_report, file_path):
             'Ordernummer': email['item_data']['Sales Order No.'],
             'Klant': email['to'],
             'Artikelnummer': email['item_data']['Item No.'],
-            'Omschrijving': email['item_data']['Description'],
+            'Omschrijving': email['item_data'].get('Description', f'Artikel {email["item_data"]["Item No."]}'),
             'Aantal': email['item_data']['Quantity'],
             'Categorie': email['category'],
             'Onderwerp': email['subject'],
@@ -456,13 +568,17 @@ def save_email_report(email_report, file_path):
     
     logging.info(f"E-mail rapport opgeslagen: {file_path}")
 
-def main():
+def main(input_file=None):
     """Hoofdfunctie van het script."""
     logging.info("=== Navision Backorder Analyzer gestart ===")
     
+    # Gebruik opgegeven file of fallback naar config
+    file_to_use = input_file if input_file else INPUT_FILE
+    logging.info(f"Gebruik bestand: {file_to_use}")
+    
     try:
         # Laad data
-        df = load_navision_data(INPUT_FILE)
+        df = load_navision_data(file_to_use)
         
         # Valideer kolommen
         validate_columns(df)
@@ -470,14 +586,30 @@ def main():
         # Filter data
         filtered_df = filter_backorder_data(df)
         
+        # Zorg ervoor dat de kolom namen correct zijn na filtering
+        if 'DOCUMENT_ID' in filtered_df.columns:
+            filtered_df = filtered_df.rename(columns={
+                'DOCUMENT_ID': 'Sales Order No.',
+                'SELL_TO_CUSTOMER_ID': 'Customer Name',
+                'TYPE_ID': 'Item No.',
+                'QUANTITY': 'Quantity',
+                'AVAILABLE_STOCK': 'Quantity Available'
+            })
+            logging.info("Kolommen opnieuw hernoemd na filtering")
+        
         # Groepeer per order
         grouped_data = group_by_sales_order(filtered_df)
         
         # Maak Excel werkboek
         wb = create_excel_workbook(grouped_data)
         
+        # Genereer unieke bestandsnaam
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = f"Output/Backorder_Analyse_v{timestamp}.xlsx"
+        
         # Sla Excel op
-        save_excel_file(wb, OUTPUT_FILE)
+        save_excel_file(wb, output_file)
         
         # Genereer e-mail rapport
         email_report = generate_email_report(grouped_data)
@@ -501,19 +633,29 @@ def main():
             logging.info(f"E-mail rapport: {email_file}")
         
         # Categorie statistieken
-        category_counts = {1: 0, 2: 0, 3: 0}
+        category_counts = {}
         for order_info in grouped_data.values():
             for _, item in order_info['backorder'].iterrows():
-                category_counts[item['Category']] += 1
+                category = item['Category']
+                if category not in category_counts:
+                    category_counts[category] = 0
+                category_counts[category] += 1
         
         logging.info("Backorder categorieën:")
         for cat_num, count in category_counts.items():
             if count > 0:
-                cat_name = CATEGORIES[cat_num]['name']
-                logging.info(f"  - {cat_name}: {count} artikelen")
+                if cat_num is None:
+                    logging.info(f"  - Geen categorie: {count} artikelen")
+                elif category_manager:
+                    cat_name = category_manager.get_category_name(cat_num)
+                    logging.info(f"  - {cat_name}: {count} artikelen")
+                else:
+                    logging.info(f"  - Categorie {cat_num}: {count} artikelen")
         
     except Exception as e:
+        import traceback
         logging.error(f"Fout tijdens uitvoering: {e}")
+        logging.error(f"Traceback: {traceback.format_exc()}")
         raise
 
 if __name__ == "__main__":

@@ -25,28 +25,28 @@ class CategoryManager:
             except:
                 pass
         
-        # Default categorieën
+        # Default categorieën (leeg - geen artikelen toegewezen)
         return {
             "category_1": {
                 "name": "Bestel bij fabrikant",
                 "description": "Artikel is niet meer via QWIC leverbaar. Backorder wordt verwijderd en dealer krijgt automatische e-mail via Salesforce met link naar fabrikant.",
                 "action": "Verwijder backorder + E-mail naar fabrikant",
                 "color": "FF6B6B",
-                "items": [10701, 10705, 10708, 10709, 10710]
+                "items": []
             },
             "category_2": {
                 "name": "Binnenkort leverbaar",
                 "description": "Backorder blijft staan en wordt niet gemaild (Navision stuurt automatisch zodra artikel binnen is).",
                 "action": "Behoud backorder",
                 "color": "4ECDC4",
-                "items": [10700, 10702, 10703, 10704, 10706, 10707, 10711, 10712, 10713, 10714, 10715, 10718, 10719, 10720]
+                "items": []
             },
             "category_3": {
                 "name": "Geen voorraadvooruitzicht",
                 "description": "Artikel komt niet meer of pas over zeer lange tijd. Backorder wordt verwijderd en dealer krijgt e-mail met link naar externe verkoper.",
                 "action": "Verwijder backorder + E-mail naar externe verkoper",
                 "color": "FFA500",
-                "items": [10716, 10717]
+                "items": []
             }
         }
     
@@ -125,7 +125,7 @@ class CategoryManager:
         for category_key, category_data in self.categories.items():
             if item_no in category_data["items"]:
                 return int(category_key.split("_")[1])
-        return 2  # Default naar categorie 2
+        return None  # Geen categorie als niet expliciet toegewezen
     
     def get_category_name(self, category_number):
         """Krijg de naam van een categorie."""

@@ -33,21 +33,23 @@ class SimpleDashboard:
     def __init__(self, root):
         self.root = root
         self.root.title("Navision Backorder Analyzer v2.0")
-        self.root.geometry("1000x800")
-        self.root.minsize(800, 600)
-
+        self.root.geometry("1000x900")
+        self.root.minsize(800, 700)
+        self.root.resizable(True, True)
+        self.root.configure(bg="lightgray")
+        
         # Queue voor thread communicatie
         self.message_queue = queue.Queue()
-
+        
         # Setup UI
         self.setup_ui()
-
+        
         # Start message checker
         self.check_messages()
 
         # Initial log message
         self.log("🚀 Dashboard gestart. Selecteer een Excel bestand om te beginnen.")
-
+        
     def setup_ui(self):
         """Setup de gebruikersinterface."""
 
@@ -55,48 +57,75 @@ class SimpleDashboard:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
+        # Canvas met scrollbar
+        canvas = tk.Canvas(self.root, bg="lightgray")
+        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=canvas.yview)
+        
         # Hoofdframe
-        main_frame = ttk.Frame(self.root, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame = ttk.Frame(canvas, padding="20")
+        
+        # Configureer canvas
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Plaats alles in grid
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        
+        # Maak window in canvas met volledige breedte
+        canvas_window = canvas.create_window((0, 0), window=main_frame, anchor="nw")
+        
+        # Update canvas breedte wanneer window resized wordt
+        def update_canvas_width(event):
+            if event.widget == self.root:
+                canvas.itemconfig(canvas_window, width=event.width-20)  # -20 voor scrollbar
+        
+        self.root.bind('<Configure>', update_canvas_width)
+        
+        # Configureer main_frame
         main_frame.columnconfigure(0, weight=1)
-        main_frame.rowconfigure(3, weight=1)
-
+        main_frame.rowconfigure(6, weight=1)
+        
+        # Update scrollbar wanneer content verandert
+        def configure_scroll(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        
+        main_frame.bind("<Configure>", configure_scroll)
+        
         # Header sectie
         self.setup_header(main_frame)
-
+        
         # Bestand selectie sectie
         self.setup_file_section(main_frame)
-
+        
         # Configuratie sectie
         self.setup_config_section(main_frame)
-
+        
         # Categorieën sectie
         self.setup_categories_section(main_frame)
-
+        
         # Log sectie
         self.setup_log_section(main_frame)
-
+        
         # Status en knoppen
         self.setup_status_section(main_frame)
         
-        # Category Manager knop
-        self.setup_category_manager_button(main_frame)
-
+        # Category Manager knop wordt toegevoegd aan status sectie
+        
     def setup_header(self, parent):
         """Setup de header sectie."""
         header_frame = ttk.Frame(parent)
         header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
-
+        
         # Titel
         title_label = ttk.Label(header_frame, text="📊 Navision Backorder Analyzer v2.0",
                                font=("Arial", 18, "bold"))
         title_label.pack()
-
+        
         # Subtitle
         subtitle_label = ttk.Label(header_frame, text="Analyseer je Navision exports met automatische categorisering en e-mailgeneratie",
                                   font=("Arial", 10), foreground="gray")
         subtitle_label.pack(pady=(5, 0))
-
+        
     def setup_file_section(self, parent):
         """Setup de bestand selectie sectie."""
         file_frame = ttk.LabelFrame(parent, text="📁 Excel Bestand Selecteren", padding="15")
@@ -119,16 +148,16 @@ class SimpleDashboard:
         self.analyze_button = ttk.Button(button_frame, text="🔍 Analyse Starten",
                                         command=self.start_analysis, state="disabled")
         self.analyze_button.pack(side=tk.LEFT)
-
+        
     def setup_config_section(self, parent):
         """Setup de configuratie sectie."""
         config_frame = ttk.LabelFrame(parent, text="⚙️ Configuratie", padding="15")
         config_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
-
+        
         # Configuratie opties in een grid
         config_grid = ttk.Frame(config_frame)
         config_grid.pack(fill=tk.X)
-
+        
         # Location Code
         ttk.Label(config_grid, text="📍 Location Code:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10), pady=5)
         self.location_var = tk.StringVar(value=LOCATION_CODE)
@@ -147,12 +176,12 @@ class SimpleDashboard:
         self.status_var = tk.StringVar(value=ORDER_STATUS)
         status_entry = ttk.Entry(config_grid, textvariable=self.status_var, width=15)
         status_entry.grid(row=0, column=5, sticky=tk.W, pady=5)
-
+        
     def setup_categories_section(self, parent):
         """Setup de categorieën sectie."""
         categories_frame = ttk.LabelFrame(parent, text="🏷️ Backorder Categorieën", padding="15")
         categories_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
-
+        
         # Categorieën overzicht
         categories_text = f"""
 📋 Categorie 1 - Bestel bij fabrikant (Rood)
@@ -173,58 +202,71 @@ class SimpleDashboard:
         categories_label = ttk.Label(categories_frame, text=categories_text, 
                                     font=("Consolas", 9), justify=tk.LEFT)
         categories_label.pack(anchor=tk.W)
-
+        
     def setup_log_section(self, parent):
         """Setup de log sectie."""
         log_frame = ttk.LabelFrame(parent, text="📝 Log Output", padding="15")
-        log_frame.grid(row=4, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 20))
+        log_frame.grid(row=4, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         log_frame.columnconfigure(0, weight=1)
         log_frame.rowconfigure(0, weight=1)
 
         # Log text widget met styling
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=12, width=80,
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=8, width=80,
                                                  font=("Consolas", 9), bg="#f8f9fa")
         self.log_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-
+        
     def setup_status_section(self, parent):
         """Setup de status en actie knoppen sectie."""
-        status_frame = ttk.Frame(parent)
+        status_frame = ttk.LabelFrame(parent, text="🔧 Acties", padding="15")
         status_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
 
         # Status bar
         self.status_var = tk.StringVar(value="✅ Klaar")
         status_bar = ttk.Label(status_frame, textvariable=self.status_var,
                               relief=tk.SUNKEN, anchor=tk.W, padding=(10, 5))
-        status_bar.grid(row=0, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 10))
+        status_bar.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
 
         # Progress bar
         self.progress = ttk.Progressbar(status_frame, mode='indeterminate')
-        self.progress.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=(0, 15))
+        self.progress.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 15))
 
-        # Actie knoppen
-        action_frame = ttk.Frame(status_frame)
-        action_frame.grid(row=2, column=0, columnspan=4)
+        # Actie knoppen in een grid layout
+        button_frame = ttk.Frame(status_frame)
+        button_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E))
 
-        self.open_output_button = ttk.Button(action_frame, text="📊 Output Openen",
-                                            command=self.open_output, state="disabled")
+        # Rij 1 knoppen
+        row1_frame = ttk.Frame(button_frame)
+        row1_frame.pack(fill=tk.X, pady=(0, 5))
+
+        self.open_output_button = ttk.Button(row1_frame, text="📊 Output Openen",
+                                            command=self.open_output, state="normal")
         self.open_output_button.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.open_emails_button = ttk.Button(action_frame, text="📧 E-mails Openen",
-                                            command=self.open_emails, state="disabled")
+        self.open_emails_button = ttk.Button(row1_frame, text="📧 E-mails Openen",
+                                            command=self.open_emails, state="normal")
         self.open_emails_button.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.open_log_button = ttk.Button(action_frame, text="📄 Log Bestand Openen",
-                                         command=self.open_log, state="disabled")
+        self.open_log_button = ttk.Button(row1_frame, text="📄 Log Bestand Openen",
+                                         command=self.open_log, state="normal")
         self.open_log_button.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.clear_log_button = ttk.Button(action_frame, text="🗑️ Log Wissen",
+        # Rij 2 knoppen
+        row2_frame = ttk.Frame(button_frame)
+        row2_frame.pack(fill=tk.X)
+
+        self.clear_log_button = ttk.Button(row2_frame, text="🗑️ Log Wissen",
                                           command=self.clear_log)
         self.clear_log_button.pack(side=tk.LEFT, padx=(0, 10))
 
-        self.open_folder_button = ttk.Button(action_frame, text="📁 Output Map Openen",
+        self.open_folder_button = ttk.Button(row2_frame, text="📁 Output Map Openen",
                                             command=self.open_output_folder)
-        self.open_folder_button.pack(side=tk.LEFT)
+        self.open_folder_button.pack(side=tk.LEFT, padx=(0, 10))
 
+        # Category Manager knop
+        self.category_manager_button = ttk.Button(row2_frame, text="📋 Categorie Manager",
+                                                command=self.open_category_manager)
+        self.category_manager_button.pack(side=tk.LEFT, padx=(0, 10))
+        
     def browse_file(self):
         """Open file browser."""
         file_path = filedialog.askopenfilename(
@@ -242,13 +284,13 @@ class SimpleDashboard:
                               foreground="green")
         self.analyze_button.config(state="normal")
         self.log(f"📁 Bestand geselecteerd: {filename}")
-
+            
     def start_analysis(self):
         """Start de analyse in een aparte thread."""
         if not hasattr(self, 'file_path'):
             messagebox.showerror("❌ Fout", "Selecteer eerst een Excel bestand.")
             return
-
+            
         # Update UI
         self.analyze_button.config(state="disabled")
         self.browse_button.config(state="disabled")
@@ -258,7 +300,7 @@ class SimpleDashboard:
         # Start analyse thread
         thread = threading.Thread(target=self.run_analysis_thread, daemon=True)
         thread.start()
-
+        
     def run_analysis_thread(self):
         """Run de analyse in een aparte thread."""
         try:
@@ -272,12 +314,13 @@ class SimpleDashboard:
             global INPUT_FILE
             INPUT_FILE = self.file_path
 
-            # Run analyse
-            run_analysis()
+            # Run analyse met aangepaste file path
+            from backorder_analyzer import main
+            main(input_file=self.file_path)
 
             # Success message
             self.message_queue.put(("success", "Analyse succesvol voltooid! 🎉"))
-
+            
         except Exception as e:
             self.message_queue.put(("error", f"Fout tijdens analyse: {str(e)}"))
 
@@ -320,7 +363,7 @@ class SimpleDashboard:
         """Wist de log."""
         self.log_text.delete(1.0, tk.END)
         self.log("🗑️ Log gewist.")
-
+            
     def open_output(self):
         """Open het output bestand."""
         output_path = os.path.abspath(OUTPUT_FILE)
@@ -331,7 +374,7 @@ class SimpleDashboard:
                 subprocess.run(['start', output_path], shell=True)
         else:
             messagebox.showerror("❌ Fout", "Output bestand niet gevonden.")
-
+            
     def open_emails(self):
         """Open het e-mail rapport bestand."""
         email_path = OUTPUT_FILE.replace('.xlsx', '_Emails.xlsx')
@@ -343,7 +386,7 @@ class SimpleDashboard:
                 subprocess.run(['start', email_path], shell=True)
         else:
             messagebox.showerror("❌ Fout", "E-mail rapport niet gevonden.")
-
+            
     def open_log(self):
         """Open het log bestand."""
         log_path = os.path.abspath(LOG_FILE)
@@ -354,7 +397,7 @@ class SimpleDashboard:
                 subprocess.run(['start', log_path], shell=True)
         else:
             messagebox.showerror("❌ Fout", "Log bestand niet gevonden.")
-
+            
     def open_output_folder(self):
         """Open de output map."""
         output_dir = os.path.dirname(os.path.abspath(OUTPUT_FILE))
@@ -366,14 +409,7 @@ class SimpleDashboard:
         else:
             messagebox.showerror("❌ Fout", "Output map niet gevonden.")
     
-    def setup_category_manager_button(self, parent):
-        """Setup de Category Manager knop."""
-        button_frame = ttk.Frame(parent)
-        button_frame.grid(row=4, column=0, sticky=(tk.W, tk.E), pady=(20, 0))
-        
-        category_button = ttk.Button(button_frame, text="📋 Categorie Manager", 
-                                    command=self.open_category_manager)
-        category_button.pack()
+
     
     def open_category_manager(self):
         """Open de Category Manager."""
@@ -407,4 +443,4 @@ def main():
     root.mainloop()
 
 if __name__ == "__main__":
-    main()
+    main() 

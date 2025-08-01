@@ -19,7 +19,16 @@ class CategoryManagerGUI:
         self.root.geometry("1000x700")
         self.root.minsize(800, 600)
         
+        # Category manager instance
         self.category_manager = CategoryManager()
+        
+        # Variables
+        self.category_var = tk.StringVar()
+        self.name_var = tk.StringVar()
+        self.action_var = tk.StringVar()
+        self.color_var = tk.StringVar()
+        self.new_item_var = tk.StringVar()
+        self.status_var = tk.StringVar()
         
         self.setup_ui()
         self.load_categories()
@@ -89,7 +98,6 @@ class CategoryManagerGUI:
         
         # Naam
         ttk.Label(info_frame, text="Naam:").grid(row=0, column=0, sticky=tk.W, pady=2)
-        self.name_var = tk.StringVar()
         self.name_entry = ttk.Entry(info_frame, textvariable=self.name_var, width=40)
         self.name_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(10, 0), pady=2)
         
@@ -100,13 +108,11 @@ class CategoryManagerGUI:
         
         # Actie
         ttk.Label(info_frame, text="Actie:").grid(row=2, column=0, sticky=tk.W, pady=2)
-        self.action_var = tk.StringVar()
         self.action_entry = ttk.Entry(info_frame, textvariable=self.action_var, width=40)
         self.action_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(10, 0), pady=2)
         
         # Kleur
         ttk.Label(info_frame, text="Kleur (hex):").grid(row=3, column=0, sticky=tk.W, pady=2)
-        self.color_var = tk.StringVar()
         self.color_entry = ttk.Entry(info_frame, textvariable=self.color_var, width=10)
         self.color_entry.grid(row=3, column=1, sticky=tk.W, padx=(10, 0), pady=2)
         
@@ -127,7 +133,6 @@ class CategoryManagerGUI:
         add_frame.columnconfigure(1, weight=1)
         
         ttk.Label(add_frame, text="Item toevoegen:").grid(row=0, column=0, sticky=tk.W)
-        self.new_item_var = tk.StringVar()
         self.new_item_entry = ttk.Entry(add_frame, textvariable=self.new_item_var, width=15)
         self.new_item_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(10, 10))
         
@@ -241,7 +246,8 @@ class CategoryManagerGUI:
             self.items_tree.delete(item)
         
         # Voeg nieuwe items toe
-        items = self.category_manager.get_all_items_in_category(int(category_key.split("_")[1]))
+        category_num = int(category_key.split("_")[1])
+        items = self.category_manager.get_all_items_in_category(category_num)
         for item in sorted(items):
             self.items_tree.insert("", "end", text=item, values=(item,))
         

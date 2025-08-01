@@ -15,14 +15,14 @@ OUTPUT_FILE = "Output/Backorder_Analyse_v7.xlsx"
 # FILTER CRITERIA
 # =============================================================================
 
-# Location Code filter
-LOCATION_CODE = "DSV"
+# Location Code filter (leeg = alle locaties)
+LOCATION_CODE = ""
 
-# Fully Reserved filter
-FULLY_RESERVED = "No"
+# Fully Reserved filter (leeg = alle items)
+FULLY_RESERVED = ""
 
-# Order Status filter
-ORDER_STATUS = "Backorder"
+# Order Status filter (leeg = alle statussen)
+ORDER_STATUS = ""
 
 # =============================================================================
 # BACKORDER CATEGORIEËN
