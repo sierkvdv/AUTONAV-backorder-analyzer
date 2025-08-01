@@ -1,0 +1,25 @@
+{
+  "category_1": {
+    "name": "Bestel bij fabrikant",
+    "description": "Artikel is niet meer via QWIC leverbaar. Backorder wordt verwijderd en dealer krijgt automatische e-mail via Salesforce met link naar fabrikant.",
+    "action": "Verwijder backorder + E-mail naar fabrikant",
+    "color": "FF6B6B",
+    "items": [
+      "11921"
+    ]
+  },
+  "category_2": {
+    "name": "Binnenkort leverbaar",
+    "description": "Backorder blijft staan en wordt niet gemaild (Navision stuurt automatisch zodra artikel binnen is).",
+    "action": "Behoud backorder",
+    "color": "4ECDC4",
+    "items": []
+  },
+  "category_3": {
+    "name": "Geen voorraadvooruitzicht",
+    "description": "Artikel komt niet meer of pas over zeer lange tijd. Backorder wordt verwijderd en dealer krijgt e-mail met link naar externe verkoper.",
+    "action": "Verwijder backorder + E-mail naar externe verkoper",
+    "color": "FFA500",
+    "items": []
+  }
+}

@@ -116,15 +116,47 @@ class SimpleDashboard:
         header_frame = ttk.Frame(parent)
         header_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 20))
         
+        # Logo en titel container
+        logo_title_frame = ttk.Frame(header_frame)
+        logo_title_frame.pack()
+        
+        # QWIC Logo (tekst versie met styling)
+        qwic_frame = ttk.Frame(logo_title_frame)
+        qwic_frame.pack(side=tk.LEFT, padx=(0, 20))
+        
+        # QWIC tekst met oranje accent
+        qwic_label = tk.Label(qwic_frame, text="QWIC", 
+                             font=("Arial Black", 24, "bold"), 
+                             fg="#333333", bg="lightgray")
+        qwic_label.pack()
+        
+        # Oranje accent lijn onder QWIC
+        accent_line = tk.Frame(qwic_frame, height=3, bg="#FF6B35")  # Oranje kleur
+        accent_line.pack(fill=tk.X, pady=(2, 0))
+        
+        # Navision Analyse Icoon en titel
+        navision_frame = ttk.Frame(logo_title_frame)
+        navision_frame.pack(side=tk.LEFT)
+        
+        # Analyse icoon (tekst versie)
+        icon_label = tk.Label(navision_frame, text="📈", 
+                             font=("Arial", 32), 
+                             fg="#0066CC", bg="lightgray")  # Blauwe kleur
+        icon_label.pack()
+        
         # Titel
-        title_label = ttk.Label(header_frame, text="📊 Navision Backorder Analyzer v2.0",
+        title_label = ttk.Label(navision_frame, text="Navision Backorder Analyzer v2.0",
                                font=("Arial", 18, "bold"))
         title_label.pack()
         
         # Subtitle
-        subtitle_label = ttk.Label(header_frame, text="Analyseer je Navision exports met automatische categorisering en e-mailgeneratie",
+        subtitle_label = ttk.Label(navision_frame, text="Analyseer je Navision exports met automatische categorisering en e-mailgeneratie",
                                   font=("Arial", 10), foreground="gray")
         subtitle_label.pack(pady=(5, 0))
+        
+        # Scheidingslijn
+        separator = ttk.Separator(header_frame, orient='horizontal')
+        separator.pack(fill=tk.X, pady=(20, 0))
         
     def setup_file_section(self, parent):
         """Setup de bestand selectie sectie."""

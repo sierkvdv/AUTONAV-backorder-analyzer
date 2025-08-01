@@ -16,8 +16,8 @@ class CategoryManagerGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Backorder Categorie Manager")
-        self.root.geometry("1000x700")
-        self.root.minsize(800, 600)
+        self.root.geometry("900x600")
+        self.root.minsize(700, 500)
         
         # Category manager instance
         self.category_manager = CategoryManager()
@@ -39,11 +39,31 @@ class CategoryManagerGUI:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         
-        # Hoofdframe
-        main_frame = ttk.Frame(self.root, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Canvas voor scrollbaarheid
+        self.canvas = tk.Canvas(self.root, bg='lightgray')
+        self.canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Scrollbar
+        scrollbar = ttk.Scrollbar(self.root, orient="vertical", command=self.canvas.yview)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        
+        # Configureer canvas
+        self.canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Hoofdframe binnen canvas
+        main_frame = ttk.Frame(self.canvas, padding="20")
+        self.canvas.create_window((0, 0), window=main_frame, anchor="nw")
+        
+        # Configureer main_frame
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(1, weight=1)
+        
+        # Bind events voor scrollbaarheid
+        main_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind("<Configure>", self.on_canvas_configure)
+        
+        # Bind mousewheel voor scrollen
+        self.canvas.bind_all("<MouseWheel>", self.on_mousewheel)
         
         # Header
         self.setup_header(main_frame)
@@ -145,24 +165,55 @@ class CategoryManagerGUI:
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
         
-        ttk.Label(list_frame, text="Items in categorie:").grid(row=0, column=0, sticky=tk.W, pady=(0, 5))
+        # Instructie voor items
+        instruction_frame = ttk.Frame(list_frame)
+        instruction_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 5))
+        
+        instruction_label = ttk.Label(instruction_frame, 
+                                     text="📋 Items in categorie (klik om te selecteren voor links/verwijderen):",
+                                     font=("Arial", 9), foreground="blue")
+        instruction_label.pack(side=tk.LEFT)
         
         # Treeview voor items
-        self.items_tree = ttk.Treeview(list_frame, columns=("item",), show="tree", height=15)
+        self.items_tree = ttk.Treeview(list_frame, columns=("item",), show="tree", height=10)
         self.items_tree.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Bind click event
+        self.items_tree.bind("<ButtonRelease-1>", self.on_tree_item_click)
         
         # Scrollbar
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.items_tree.yview)
         scrollbar.grid(row=1, column=1, sticky=(tk.N, tk.S))
         self.items_tree.configure(yscrollcommand=scrollbar.set)
         
+        # Geselecteerd item display
+        selected_item_frame = ttk.Frame(list_frame)
+        selected_item_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
+        selected_item_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(selected_item_frame, text="Geselecteerd:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.selected_item_display = ttk.Label(selected_item_frame, text="Geen item geselecteerd", 
+                                             font=("Arial", 9), foreground="gray")
+        self.selected_item_display.grid(row=0, column=1, sticky=tk.W, padx=(10, 0), pady=2)
+        
+        # Knoppen frame
+        buttons_frame = ttk.Frame(list_frame)
+        buttons_frame.grid(row=3, column=0, columnspan=2, pady=(10, 0))
+        
         # Verwijder knop
-        remove_button = ttk.Button(list_frame, text="🗑️ Verwijder Geselecteerd", command=self.remove_item)
-        remove_button.grid(row=2, column=0, pady=(10, 0))
+        remove_button = ttk.Button(buttons_frame, text="🗑️ Verwijder Geselecteerd", command=self.remove_item, 
+                                  style="Danger.TButton")
+        remove_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Duidelijke instructie
+        instruction_label = ttk.Label(buttons_frame, 
+                                     text="← Klik hier om het geselecteerde item te verwijderen",
+                                     font=("Arial", 8), foreground="red")
+        instruction_label.pack(side=tk.LEFT, padx=(5, 0))
         
         # Statistieken
-        self.stats_label = ttk.Label(list_frame, text="Totaal items: 0")
-        self.stats_label.grid(row=3, column=0, pady=(10, 0))
+        self.stats_label = ttk.Label(buttons_frame, text="Totaal items: 0")
+        self.stats_label.pack(side=tk.RIGHT)
     
     def setup_links_management_section(self, parent):
         """Setup de links beheer sectie."""
@@ -170,17 +221,25 @@ class CategoryManagerGUI:
         links_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
         links_frame.columnconfigure(1, weight=1)
         
-        # Artikel selectie
-        ttk.Label(links_frame, text="Artikelnummer:").grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
+        # Instructie
+        instruction_label = ttk.Label(links_frame, 
+                                     text="💡 Klik op een artikel in de lijst hierboven om direct links in te vullen",
+                                     font=("Arial", 9), foreground="blue")
+        instruction_label.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
         
-        self.item_var = tk.StringVar()
-        self.item_combo = ttk.Combobox(links_frame, textvariable=self.item_var, width=15)
-        self.item_combo.grid(row=0, column=1, sticky=tk.W, pady=(0, 10))
-        self.item_combo.bind("<<ComboboxSelected>>", self.on_item_selected)
+        # Geselecteerd artikel display
+        selected_frame = ttk.Frame(links_frame)
+        selected_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        selected_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(selected_frame, text="Geselecteerd artikel:").grid(row=0, column=0, sticky=tk.W, pady=2)
+        self.selected_item_label = ttk.Label(selected_frame, text="Geen artikel geselecteerd", 
+                                           font=("Arial", 10, "bold"), foreground="gray")
+        self.selected_item_label.grid(row=0, column=1, sticky=tk.W, padx=(10, 0), pady=2)
         
         # Links sectie
         links_info_frame = ttk.Frame(links_frame)
-        links_info_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E))
+        links_info_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E))
         links_info_frame.columnconfigure(1, weight=1)
         
         # Fabrikant link
@@ -195,9 +254,23 @@ class CategoryManagerGUI:
         self.externe_link_entry = ttk.Entry(links_info_frame, textvariable=self.externe_link_var, width=50)
         self.externe_link_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(10, 0), pady=2)
         
+        # Knoppen frame
+        buttons_frame = ttk.Frame(links_frame)
+        buttons_frame.grid(row=3, column=0, columnspan=2, pady=(10, 0))
+        
         # Save button
-        save_links_button = ttk.Button(links_frame, text="💾 Links Opslaan", command=self.save_item_links)
-        save_links_button.grid(row=2, column=0, columnspan=2, pady=(10, 0))
+        save_links_button = ttk.Button(buttons_frame, text="💾 Links Opslaan", command=self.save_item_links)
+        save_links_button.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Verwijder knop (duplicaat voor duidelijkheid)
+        remove_button_links = ttk.Button(buttons_frame, text="🗑️ Verwijder Artikel", command=self.remove_item)
+        remove_button_links.pack(side=tk.LEFT, padx=(0, 10))
+        
+        # Instructie
+        instruction_label = ttk.Label(buttons_frame, 
+                                     text="← Of klik hier om het geselecteerde artikel te verwijderen",
+                                     font=("Arial", 8), foreground="red")
+        instruction_label.pack(side=tk.LEFT, padx=(5, 0))
     
     def setup_status_section(self, parent):
         """Setup de status sectie."""
@@ -215,6 +288,14 @@ class CategoryManagerGUI:
         self.status_var = tk.StringVar(value="✅ Klaar")
         status_label = ttk.Label(status_frame, textvariable=self.status_var)
         status_label.pack(side=tk.RIGHT)
+    
+    def on_canvas_configure(self, event):
+        """Configureer canvas breedte."""
+        self.canvas.itemconfig(self.canvas.find_withtag("all")[0], width=event.width)
+    
+    def on_mousewheel(self, event):
+        """Scroll met muiswiel."""
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
     
     def load_categories(self):
         """Laad categorieën data."""
@@ -305,15 +386,20 @@ class CategoryManagerGUI:
         """Verwijder een geselecteerd item."""
         selection = self.items_tree.selection()
         if not selection:
-            messagebox.showwarning("Waarschuwing", "Selecteer eerst een item!")
+            messagebox.showwarning("Waarschuwing", "Selecteer eerst een item door erop te klikken!")
             return
         
         item_no = self.items_tree.item(selection[0], "text")
         category_key = self.category_var.get()
         
-        if messagebox.askyesno("Bevestig", f"Weet je zeker dat je item {item_no} wilt verwijderen?"):
+        if messagebox.askyesno("Bevestig", f"Weet je zeker dat je item {item_no} wilt verwijderen uit {category_key}?"):
             try:
                 if self.category_manager.remove_item_from_category(item_no, category_key):
+                    # Reset geselecteerd item display
+                    self.selected_item_display.config(text="Geen item geselecteerd", foreground="gray")
+                    self.selected_item_label.config(text="Geen artikel geselecteerd", foreground="gray")
+                    
+                    # Herlaad items
                     self.load_items_for_category(category_key)
                     self.status_var.set(f"✅ Item {item_no} verwijderd")
                     messagebox.showinfo("Succes", f"Item {item_no} verwijderd uit {category_key}")
@@ -322,25 +408,46 @@ class CategoryManagerGUI:
             except Exception as e:
                 messagebox.showerror("Fout", f"Fout bij verwijderen: {e}")
     
+    def on_tree_item_click(self, event=None):
+        """Wanneer een artikel in de tree wordt geklikt."""
+        selection = self.items_tree.selection()
+        if selection:
+            item_no = self.items_tree.item(selection[0], "text")
+            self.select_item_for_links(item_no)
+            # Update geselecteerd item display
+            self.selected_item_display.config(text=f"Item {item_no}", foreground="black")
+        else:
+            # Geen selectie
+            self.selected_item_display.config(text="Geen item geselecteerd", foreground="gray")
+    
+    def select_item_for_links(self, item_no):
+        """Selecteer een artikel voor links beheer."""
+        # Update geselecteerd artikel label
+        self.selected_item_label.config(text=f"Artikel {item_no}", foreground="black")
+        
+        # Laad bestaande links
+        fabrikant_link = self.category_manager.get_item_link(item_no, 'fabrikant')
+        self.fabrikant_link_var.set(fabrikant_link)
+        
+        externe_link = self.category_manager.get_item_link(item_no, 'externe_verkoper')
+        self.externe_link_var.set(externe_link)
+        
+        # Sla geselecteerd item op
+        self.selected_item_no = item_no
+    
     def on_item_selected(self, event=None):
-        """Wanneer een artikel wordt geselecteerd."""
+        """Wanneer een artikel wordt geselecteerd (oude methode - behouden voor compatibiliteit)."""
         item_no = self.item_var.get()
         if item_no:
-            # Laad fabrikant link
-            fabrikant_link = self.category_manager.get_item_link(item_no, 'fabrikant')
-            self.fabrikant_link_var.set(fabrikant_link)
-            
-            # Laad externe verkoper link
-            externe_link = self.category_manager.get_item_link(item_no, 'externe_verkoper')
-            self.externe_link_var.set(externe_link)
+            self.select_item_for_links(item_no)
     
     def save_item_links(self):
         """Sla links op voor het geselecteerde artikel."""
-        item_no = self.item_var.get()
-        if not item_no:
-            messagebox.showerror("Fout", "Selecteer eerst een artikel!")
+        if not hasattr(self, 'selected_item_no') or not self.selected_item_no:
+            messagebox.showerror("Fout", "Selecteer eerst een artikel door erop te klikken!")
             return
         
+        item_no = self.selected_item_no
         fabrikant_link = self.fabrikant_link_var.get().strip()
         externe_link = self.externe_link_var.get().strip()
         
@@ -355,15 +462,9 @@ class CategoryManagerGUI:
         messagebox.showinfo("Succes", f"Links voor artikel {item_no} opgeslagen!")
     
     def load_all_items(self):
-        """Laad alle artikelen in de combobox."""
-        all_items = []
-        for category_key in self.category_manager.categories:
-            items = self.category_manager.get_all_items_in_category(int(category_key.split("_")[1]))
-            all_items.extend(items)
-        
-        # Unieke items sorteren
-        unique_items = sorted(list(set(all_items)))
-        self.item_combo['values'] = unique_items
+        """Laad alle artikelen (niet meer nodig voor combobox, maar behouden voor compatibiliteit)."""
+        # Deze functie is niet meer nodig omdat we direct op artikelen klikken
+        pass
     
     def refresh_data(self):
         """Ververs alle data."""

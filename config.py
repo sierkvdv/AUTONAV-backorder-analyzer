@@ -29,38 +29,13 @@ ORDER_STATUS = ""
 # =============================================================================
 
 # Categorie 1: Bestel bij fabrikant (niet meer leverbaar via QWIC)
-CATEGORY_1_ITEMS = [
-    # QWIC items die niet meer leverbaar zijn
-    '10701', '10705', '10708', '10709', '10710',  # Inactive/Phase-out items
-    # Algemene items
-    'OIL-5W30-1L', 'OIL-10W40-1L', 'BRAKE-FLUID', 'COOLANT-1L', 'POWER-STEERING',
-    'AIR-FILTER', 'OIL-FILTER', 'FUEL-FILTER', 'CABIN-FILTER',
-    'BRAKE-PADS-FRONT', 'BRAKE-PADS-REAR', 'BRAKE-DISCS-FRONT', 'BRAKE-DISCS-REAR',
-    'BATTERY-60AH', 'BATTERY-70AH', 'BATTERY-80AH',
-    'CLUTCH-KIT', 'CLUTCH-DISC', 'CLUTCH-BEARING',
-    'GEAR-OIL-75W90', 'GEAR-OIL-80W90',
-    'STEERING-PUMP', 'STEERING-BOX', 'STEERING-ROD', 'TIE-ROD-END',
-    'EXHAUST-MUFFLER', 'EXHAUST-CAT', 'EXHAUST-PIPE',
-    'ALTERNATOR', 'STARTER-MOTOR', 'IGNITION-COIL', 'SPARK-PLUGS',
-    'TIRES-205-55-16', 'TIRES-225-45-17', 'WHEEL-BEARING',
-    'HEADLIGHT-BULB', 'TAILLIGHT-BULB', 'FOG-LIGHT',
-    'CAR-MATS', 'STEERING-WHEEL', 'GEAR-KNOB'
-]
+CATEGORY_1_ITEMS = []
 
 # Categorie 2: Binnenkort leverbaar (artikelen die QWIC nog wel kan leveren)
-CATEGORY_2_ITEMS = [
-    # QWIC items die nog leverbaar zijn
-    '10700', '10702', '10703', '10704', '10706', '10707', '10711', '10712', '10713', '10714', '10715', '10716', '10717', '10718', '10719', '10720',
-    # Algemene items
-    'BRAKE-FLUID-DOT4', 'BRAKE-PADS-FRONT', 'BRAKE-PADS-REAR',
-    'OIL-FILTER', 'AIR-FILTER', 'BATTERY-60AH'
-]
+CATEGORY_2_ITEMS = []
 
 # Categorie 3: Geen voorraadvooruitzicht (artikelen die niet meer leverbaar zijn)
-CATEGORY_3_ITEMS = [
-    'EXHAUST-CAT', 'EXHAUST-MUFFLER', 'EXHAUST-PIPE',
-    'STEERING-WHEEL', 'GEAR-KNOB', 'CAR-MATS'
-]
+CATEGORY_3_ITEMS = []
 
 # Categorie namen en beschrijvingen
 CATEGORIES = {
