@@ -5,7 +5,12 @@
     "action": "Verwijder backorder + E-mail naar fabrikant",
     "color": "FF6B6B",
     "items": [
-      "11921"
+      "11921",
+      "11107",
+      "11278",
+      "11416",
+      "11922",
+      "11603"
     ]
   },
   "category_2": {
@@ -13,13 +18,46 @@
     "description": "Backorder blijft staan en wordt niet gemaild (Navision stuurt automatisch zodra artikel binnen is).",
     "action": "Behoud backorder",
     "color": "4ECDC4",
-    "items": []
+    "items": [
+      "30794",
+      "10703",
+      "10704",
+      "10706"
+    ]
   },
   "category_3": {
     "name": "Geen voorraadvooruitzicht",
     "description": "Artikel komt niet meer of pas over zeer lange tijd. Backorder wordt verwijderd en dealer krijgt e-mail met link naar externe verkoper.",
     "action": "Verwijder backorder + E-mail naar externe verkoper",
     "color": "FFA500",
-    "items": []
+    "items": [
+      "11115",
+      "12362",
+      "8303",
+      "12197",
+      "11127",
+      "11926"
+    ]
+  },
+  "category_4": {
+    "name": "Vervang door alternatief",
+    "description": "Artikel wordt gecategoriseerd voor vervanging door QWIC alternatief. Backorder wordt gewijzigd naar alternatief product zonder e-mail naar dealer.",
+    "action": "Wijzig backorder naar alternatief",
+    "color": "9B59B6",
+    "items": [
+      "12203",
+      "11910",
+      "12194",
+      "11991",
+      "10735"
+    ],
+    "alternative_products": {
+      "12203": "12248",
+      "11910": "12248",
+      "12194": "12368",
+      "11991": "12001",
+      "10701": "10705",
+      "10735": "12218"
+    }
   }
 }

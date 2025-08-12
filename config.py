@@ -37,6 +37,9 @@ CATEGORY_2_ITEMS = []
 # Categorie 3: Geen voorraadvooruitzicht (artikelen die niet meer leverbaar zijn)
 CATEGORY_3_ITEMS = []
 
+# Categorie 4: Vervang door alternatief (artikelen die vervangen worden door QWIC alternatief)
+CATEGORY_4_ITEMS = []
+
 # Categorie namen en beschrijvingen
 CATEGORIES = {
     1: {
@@ -56,6 +59,12 @@ CATEGORIES = {
         'description': 'Artikel komt niet meer of pas over zeer lange tijd. Backorder wordt verwijderd en dealer krijgt e-mail met link naar externe verkoper.',
         'action': 'Verwijder backorder + E-mail naar externe verkoper',
         'color': 'FFA500'  # Oranje
+    },
+    4: {
+        'name': 'Vervang door alternatief',
+        'description': 'Artikel wordt gecategoriseerd voor vervanging door QWIC alternatief. Backorder wordt gewijzigd naar alternatief product zonder e-mail naar dealer.',
+        'action': 'Wijzig backorder naar alternatief',
+        'color': '9B59B6'  # Paars
     }
 }
 
@@ -72,8 +81,7 @@ Beste {customer_name},
 
 Uw backorder artikel "{item_description}" (Artikelnummer: {item_no}) is helaas niet meer leverbaar via QWIC.
 
-Wij raden u aan om dit artikel direct bij de fabrikant te bestellen:
-🔗 {manufacturer_link}
+{manufacturer_message}
 
 Ordergegevens:
 - Ordernummer: {order_no}
@@ -101,8 +109,7 @@ Beste {customer_name},
 
 Uw backorder artikel "{item_description}" (Artikelnummer: {item_no}) is helaas niet meer beschikbaar via QWIC.
 
-Wij raden u aan om dit artikel bij een externe verkoper te bestellen:
-🔗 {external_seller_link}
+{external_seller_message}
 
 Ordergegevens:
 - Ordernummer: {order_no}
@@ -146,7 +153,8 @@ COLORS = {
     'border': '000000',      # Zwart voor borders
     'category_1': 'FF6B6B',  # Rood voor categorie 1
     'category_2': '4ECDC4',  # Turquoise voor categorie 2
-    'category_3': 'FFA500'   # Oranje voor categorie 3
+    'category_3': 'FFA500',  # Oranje voor categorie 3
+    'category_4': '9B59B6'   # Paars voor categorie 4
 }
 
 # =============================================================================

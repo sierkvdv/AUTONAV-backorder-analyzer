@@ -28,6 +28,8 @@ class CategoryManagerGUI:
         self.action_var = tk.StringVar()
         self.color_var = tk.StringVar()
         self.new_item_var = tk.StringVar()
+        self.alternative_item_var = tk.StringVar()  # Voor categorie 4
+        self.selected_item_for_alternative = None  # Houd geselecteerd item bij voor alternatief
         self.status_var = tk.StringVar()
         
         self.setup_ui()
@@ -105,11 +107,11 @@ class CategoryManagerGUI:
         ttk.Label(categories_frame, text="Selecteer categorie:").grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
         
         self.category_var = tk.StringVar(value="category_1")
-        category_combo = ttk.Combobox(categories_frame, textvariable=self.category_var, 
-                                     values=["category_1", "category_2", "category_3"], 
-                                     state="readonly", width=15)
-        category_combo.grid(row=0, column=1, sticky=tk.W, pady=(0, 10))
-        category_combo.bind("<<ComboboxSelected>>", self.on_category_selected)
+        # Dropdown wordt later gevuld in load_categories()
+        self.category_combo = ttk.Combobox(categories_frame, textvariable=self.category_var, 
+                                          state="readonly", width=15)
+        self.category_combo.grid(row=0, column=1, sticky=tk.W, pady=(0, 10))
+        self.category_combo.bind("<<ComboboxSelected>>", self.on_category_selected)
         
         # Categorie informatie
         info_frame = ttk.Frame(categories_frame)
@@ -159,9 +161,29 @@ class CategoryManagerGUI:
         add_button = ttk.Button(add_frame, text="➕ Toevoegen", command=self.add_item)
         add_button.grid(row=0, column=2)
         
+        # Alternatief item veld (alleen voor categorie 4)
+        self.alternative_frame = ttk.Frame(items_frame)
+        self.alternative_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.alternative_frame.columnconfigure(1, weight=1)
+        
+        # Label voor geselecteerd item
+        self.alternative_item_label = ttk.Label(self.alternative_frame, text="Selecteer een product om alternatief in te stellen", 
+                                               font=("Arial", 9), foreground="gray")
+        self.alternative_item_label.grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
+        
+        ttk.Label(self.alternative_frame, text="Alternatief product:").grid(row=1, column=0, sticky=tk.W)
+        self.alternative_item_entry = ttk.Entry(self.alternative_frame, textvariable=self.alternative_item_var, width=15)
+        self.alternative_item_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(10, 10))
+        
+        self.alternative_save_button = ttk.Button(self.alternative_frame, text="💾 Opslaan", command=self.save_alternative_item)
+        self.alternative_save_button.grid(row=1, column=2)
+        
+        # Verberg alternatief frame standaard
+        self.alternative_frame.grid_remove()
+        
         # Items lijst
         list_frame = ttk.Frame(items_frame)
-        list_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        list_frame.grid(row=2, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
         
@@ -175,8 +197,18 @@ class CategoryManagerGUI:
         instruction_label.pack(side=tk.LEFT)
         
         # Treeview voor items
-        self.items_tree = ttk.Treeview(list_frame, columns=("item",), show="tree", height=10)
+        self.items_tree = ttk.Treeview(list_frame, columns=("item", "alternative"), show="tree headings", height=10)
         self.items_tree.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Configureer kolommen
+        self.items_tree.heading("#0", text="Product")
+        self.items_tree.heading("item", text="Product")
+        self.items_tree.heading("alternative", text="Alternatief")
+        
+        # Kolom breedtes
+        self.items_tree.column("#0", width=100, minwidth=100)
+        self.items_tree.column("item", width=100, minwidth=100)
+        self.items_tree.column("alternative", width=120, minwidth=120)
         
         # Bind click event
         self.items_tree.bind("<ButtonRelease-1>", self.on_tree_item_click)
@@ -299,6 +331,10 @@ class CategoryManagerGUI:
     
     def load_categories(self):
         """Laad categorieën data."""
+        # Vul de dropdown met alle beschikbare categorieën
+        category_values = list(self.category_manager.categories.keys())
+        self.category_combo['values'] = category_values
+        
         self.on_category_selected()
         self.load_all_items()
     
@@ -319,6 +355,17 @@ class CategoryManagerGUI:
         
         # Laad items
         self.load_items_for_category(category_key)
+        
+        # Toon/verberg alternatief veld voor categorie 4
+        if category_num == 4:
+            self.alternative_frame.grid()
+            # Reset alternatief product veld
+            self.alternative_item_var.set("")
+            self.selected_item_for_alternative = None
+            if hasattr(self, 'alternative_item_label'):
+                self.alternative_item_label.config(text="Selecteer een product om alternatief in te stellen", foreground="gray")
+        else:
+            self.alternative_frame.grid_remove()
     
     def load_items_for_category(self, category_key):
         """Laad items voor een categorie."""
@@ -329,8 +376,14 @@ class CategoryManagerGUI:
         # Voeg nieuwe items toe
         category_num = int(category_key.split("_")[1])
         items = self.category_manager.get_all_items_in_category(category_num)
+        
         for item in sorted(items):
-            self.items_tree.insert("", "end", text=item, values=(item,))
+            # Voor categorie 4, toon het individuele alternatieve product
+            if category_num == 4:
+                alternative_product = self.category_manager.get_alternative_product(category_num, item)
+                self.items_tree.insert("", "end", text=item, values=(item, alternative_product))
+            else:
+                self.items_tree.insert("", "end", text=item, values=(item, ""))
         
         # Update statistieken
         self.stats_label.config(text=f"Totaal items: {len(items)}")
@@ -382,6 +435,36 @@ class CategoryManagerGUI:
         except Exception as e:
             messagebox.showerror("Fout", f"Fout bij toevoegen: {e}")
     
+    def save_alternative_item(self):
+        """Sla het alternatieve productnummer op voor categorie 4."""
+        if not self.selected_item_for_alternative:
+            messagebox.showerror("Fout", "Selecteer eerst een product door erop te klikken!")
+            return
+        
+        alternative_item = self.alternative_item_var.get().strip()
+        if not alternative_item:
+            messagebox.showerror("Fout", "Voer een alternatief productnummer in!")
+            return
+        
+        category_key = self.category_var.get()
+        category_num = int(category_key.split("_")[1])
+        
+        if category_num != 4:
+            messagebox.showerror("Fout", "Alternatieve producten kunnen alleen voor categorie 4 worden ingesteld!")
+            return
+        
+        try:
+            # Sla het alternatieve productnummer op voor het geselecteerde item
+            if self.category_manager.set_alternative_product(category_num, self.selected_item_for_alternative, alternative_item):
+                # Ververs de items lijst om het alternatieve product te tonen
+                self.load_items_for_category(category_key)
+                self.status_var.set(f"✅ Alternatief product {alternative_item} opgeslagen voor {self.selected_item_for_alternative}")
+                messagebox.showinfo("Succes", f"Alternatief product {alternative_item} opgeslagen voor {self.selected_item_for_alternative}")
+            else:
+                messagebox.showerror("Fout", "Kon alternatief product niet opslaan!")
+        except Exception as e:
+            messagebox.showerror("Fout", f"Fout bij opslaan: {e}")
+    
     def remove_item(self):
         """Verwijder een geselecteerd item."""
         selection = self.items_tree.selection()
@@ -416,9 +499,20 @@ class CategoryManagerGUI:
             self.select_item_for_links(item_no)
             # Update geselecteerd item display
             self.selected_item_display.config(text=f"Item {item_no}", foreground="black")
+            
+            # Voor categorie 4: vul alternatief product veld
+            category_key = self.category_var.get()
+            category_num = int(category_key.split("_")[1])
+            if category_num == 4:
+                self.selected_item_for_alternative = item_no
+                alternative_product = self.category_manager.get_alternative_product(category_num, item_no)
+                self.alternative_item_var.set(alternative_product)
+                self.alternative_item_label.config(text=f"Alternatief voor product {item_no}:", foreground="black")
         else:
             # Geen selectie
             self.selected_item_display.config(text="Geen item geselecteerd", foreground="gray")
+            if hasattr(self, 'alternative_item_label'):
+                self.alternative_item_label.config(text="Selecteer een product om alternatief in te stellen", foreground="gray")
     
     def select_item_for_links(self, item_no):
         """Selecteer een artikel voor links beheer."""

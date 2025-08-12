@@ -1,0 +1,137 @@
+warning: in the working copy of 'backorder_analyzer.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'category_manager.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'category_manager_gui.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'config.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/backorder_analyzer.py b/backorder_analyzer.py[m
+[1mindex 755140f..3d4194b 100644[m
+[1m--- a/backorder_analyzer.py[m
+[1m+++ b/backorder_analyzer.py[m
+[36m@@ -38,7 +38,8 @@[m [mexcept ImportError:[m
+         'border': '000000',[m
+         'category_1': 'FF6B6B',[m
+         'category_2': '4ECDC4',[m
+[31m-        'category_3': 'FFA500'[m
+[32m+[m[32m        'category_3': 'FFA500',[m
+[32m+[m[32m        'category_4': '9B59B6'[m
+     }[m
+     COLUMN_WIDTHS = [15, 40, 12, 12, 15, 40, 12, 12, 20][m
+     LOG_FILE = "backorder_analyzer.log"[m
+[36m@@ -182,21 +183,24 @@[m [mdef categorize_backorder_items(df):[m
+             # Geen CategoryManager beschikbaar - alle artikelen krijgen geen categorie[m
+             return None[m
+     [m
+[32m+[m[32m    # Maak een kopie van de DataFrame om pandas warnings te voorkomen[m
+[32m+[m[32m    df_copy = df.copy()[m
+[32m+[m[41m    [m
+     # Voeg categorie toe aan DataFrame[m
+[31m-    df['Category'] = df['Item No.'].apply(get_category)[m
+[32m+[m[32m    df_copy['Category'] = df_copy['Item No.'].apply(get_category)[m
+     [m
+     # Bepaal categorie namen en acties[m
+[31m-    df['Category_Name'] = df['Category'].apply(lambda x: [m
+[31m-        category_manager.get_category_name(x) if category_manager and x is not None [m
+[32m+[m[32m    df_copy['Category_Name'] = df_copy['Category'].apply(lambda x:[m[41m [m
+[32m+[m[32m        category_manager.get_category_name(x) if category_manager[m[41m [m
+         else 'Geen categorie'[m
+     )[m
+     [m
+[31m-    df['Category_Action'] = df['Category'].apply(lambda x: [m
+[31m-        category_manager.get_category_action(x) if category_manager and x is not None [m
+[32m+[m[32m    df_copy['Category_Action'] = df_copy['Category'].apply(lambda x:[m[41m [m
+[32m+[m[32m        category_manager.get_category_action(x) if category_manager[m[41m [m
+         else 'Behoud backorder'[m
+     )[m
+     [m
+[31m-    return df[m
+[32m+[m[32m    return df_copy[m
+ [m
+ def group_by_sales_order(df):[m
+     """Groepeer data per Sales Order en categoriseer artikelen."""[m
+[36m@@ -261,6 +265,36 @@[m [mdef group_by_sales_order(df):[m
+     [m
+     return grouped_data[m
+ [m
+[32m+[m[32mdef shorten_url(url):[m
+[32m+[m[32m    """Verkort een URL door alleen het domein en belangrijke delen te behouden."""[m
+[32m+[m[32m    if not url or not isinstance(url, str):[m
+[32m+[m[32m        return url[m
+[32m+[m[41m    [m
+[32m+[m[32m    # Verwijder protocol[m
+[32m+[m[32m    if url.startswith('http://'):[m
+[32m+[m[32m        url = url[7:][m
+[32m+[m[32m    elif url.startswith('https://'):[m
+[32m+[m[32m        url = url[8:][m
+[32m+[m[41m    [m
+[32m+[m[32m    # Verwijder www. als aanwezig[m
+[32m+[m[32m    if url.startswith('www.'):[m
+[32m+[m[32m        url = url[4:][m
+[32m+[m[41m    [m
+[32m+[m[32m    # Als de URL nog steeds te lang is, behoud alleen het domein en eerste pad[m
+[32m+[m[32m    if len(url) > 50:[m
+[32m+[m[32m        parts = url.split('/')[m
+[32m+[m[32m        if len(parts) > 1:[m
+[32m+[m[32m            # Behoud domein + eerste pad[m
+[32m+[m[32m            shortened = '/'.join(parts[:2])[m
+[32m+[m[32m            if len(shortened) > 50:[m
+[32m+[m[32m                # Als nog steeds te lang, behoud alleen domein[m
+[32m+[m[32m                shortened = parts[0][m
+[32m+[m[32m            return shortened[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            return parts[0][m
+[32m+[m[41m    [m
+[32m+[m[32m    return url[m
+[32m+[m
+ def generate_email_content(item_data, category):[m
+     """Genereer e-mail content voor een artikel."""[m
+     if category not in EMAIL_TEMPLATES:[m
+[36m@@ -283,30 +317,32 @@[m [mdef generate_email_content(item_data, category):[m
+             # Categorie 1: Link naar fabrikant[m
+             manufacturer_link = category_manager.get_item_link(item_data['Item No.'], 'fabrikant')[m
+             if manufacturer_link:[m
+[31m-                email_data['manufacturer_link'] = manufacturer_link[m
+[32m+[m[32m                email_data['manufacturer_message'] = f"Wij raden u aan om dit artikel direct bij de fabrikant te bestellen:\n🔗 {shorten_url(manufacturer_link)} (verkorte link)"[m
+             else:[m
+[31m-                email_data['manufacturer_link'] = 'https://www.original-equipment-parts.com'[m
+[32m+[m[32m                email_data['manufacturer_message'] = "Wij raden u aan om contact op te nemen met de fabrikant van dit artikel voor bestelling."[m
+         elif category == 3:[m
+             # Categorie 3: Link naar externe verkoper[m
+             external_link = category_manager.get_item_link(item_data['Item No.'], 'externe_verkoper')[m
+             if external_link:[m
+[31m-                email_data['external_seller_link'] = external_link[m
+[32m+[m[32m                email_data['external_seller_message'] = f"Wij raden u aan om dit artikel bij een externe verkoper te bestellen:\n🔗 {shorten_url(external_link)} (verkorte link)"[m
+             else:[m
+[31m-                email_data['external_seller_link'] = 'https://www.autodoc.nl'[m
+[32m+[m[32m                email_data['external_seller_message'] = "Wij raden u aan om een externe verkoper te zoeken voor dit artikel."[m
+     else:[m
+         # Fallback naar oude methode[m
+         if category == 1:[m
+             manufacturer_links = template.get('manufacturer_links', {})[m
+[31m-            email_data['manufacturer_link'] = manufacturer_links.get([m
+[32m+[m[32m            link = manufacturer_links.get([m
+                 item_data['Item No.'], [m
+                 manufacturer_links.get('default', 'https://www.original-equipment-parts.com')[m
+             )[m
+[32m+[m[32m            email_data['manufacturer_message'] = f"Wij raden u aan om dit artikel direct bij de fabrikant te bestellen:\n🔗 {shorten_url(link)} (verkorte link)"[m
+         elif category == 3:[m
+             external_links = template.get('external_seller_links', {})[m
+[31m-            email_data['external_seller_link'] = external_links.get([m
+[32m+[m[32m            link = external_links.get([m
+                 item_data['Item No.'], [m
+                 external_links.get('default', 'https://www.autodoc.nl')[m
+             )[m
+[32m+[m[32m            email_data['external_seller_message'] = f"Wij raden u aan om dit artikel bij een externe verkoper te bestellen:\n🔗 {shorten_url(link)} (verkorte link)"[m
+     [m
+     # Genereer e-mail content[m
+     subject = template['subject'].format(**email_data)[m
+[36m@@ -336,7 +372,9 @@[m [mdef create_excel_workbook(grouped_data):[m
+         'order_header': PatternFill(start_color=COLORS['order_header'], end_color=COLORS['order_header'], fill_type='solid'),[m
+         'category_1': PatternFill(start_color=COLORS['category_1'], end_color=COLORS['category_1'], fill_type='solid'),[m
+         'category_2': PatternFill(start_color=COLORS['category_2'], end_color=COLORS['category_2'], fill_type='solid'),[m
+[31m-        'category_3': PatternFill(start_color=COLORS['category_3'], end_color=COLORS['category_3'], fill_type='solid')[m
+[32m+[m[32m        'category_3': PatternFill(start_color=COLORS['category_3'], end_color=COLORS['category_3'], fill_type='solid'),[m
+[32m+[m[32m        'category_4': PatternFill(start_color=COLORS['category_4'], end_color=COLORS['category_4'], fill_type='solid'),[m
+[32m+[m[32m        'no_category': PatternFill(start_color=COLORS['backorder'], end_color=COLORS['backorder'], fill_type='solid')[m
+     }[m
+     [m
+     # Definieer borders[m
+[36m@@ -466,11 +504

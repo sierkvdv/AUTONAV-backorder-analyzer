@@ -47,6 +47,14 @@ class CategoryManager:
                 "action": "Verwijder backorder + E-mail naar externe verkoper",
                 "color": "FFA500",
                 "items": []
+            },
+            "category_4": {
+                "name": "Vervang door alternatief",
+                "description": "Artikel wordt gecategoriseerd voor vervanging door QWIC alternatief. Backorder wordt gewijzigd naar alternatief product zonder e-mail naar dealer.",
+                "action": "Wijzig backorder naar alternatief",
+                "color": "9B59B6",
+                "items": [],
+                "alternative_product": ""
             }
         }
     
@@ -122,13 +130,17 @@ class CategoryManager:
     
     def get_category_for_item(self, item_no):
         """Bepaal de categorie voor een item."""
+        # Converteer item_no naar string voor vergelijking
+        item_str = str(item_no)
         for category_key, category_data in self.categories.items():
-            if item_no in category_data["items"]:
+            if item_str in category_data["items"]:
                 return int(category_key.split("_")[1])
         return None  # Geen categorie als niet expliciet toegewezen
     
     def get_category_name(self, category_number):
         """Krijg de naam van een categorie."""
+        if category_number is None:
+            return "Geen categorie"
         category_key = f"category_{category_number}"
         if category_key in self.categories:
             return self.categories[category_key]["name"]
@@ -136,6 +148,8 @@ class CategoryManager:
     
     def get_category_action(self, category_number):
         """Krijg de actie van een categorie."""
+        if category_number is None:
+            return "Behoud backorder"
         category_key = f"category_{category_number}"
         if category_key in self.categories:
             return self.categories[category_key]["action"]
@@ -170,6 +184,31 @@ class CategoryManager:
             return self.categories[category_key]["items"]
         return []
     
+    def get_alternative_product(self, category_number, item_no=None):
+        """Haal het alternatieve product op voor categorie 4."""
+        category_key = f"category_{category_number}"
+        if category_key in self.categories:
+            if item_no:
+                # Specifiek alternatief voor een item
+                alternative_products = self.categories[category_key].get("alternative_products", {})
+                return alternative_products.get(str(item_no), "")
+            else:
+                # Algemeen alternatief voor de categorie (oude methode voor compatibiliteit)
+                return self.categories[category_key].get("alternative_product", "")
+        return ""
+    
+    def set_alternative_product(self, category_number, item_no, alternative_product):
+        """Stel een alternatief product in voor een specifiek item in categorie 4."""
+        category_key = f"category_{category_number}"
+        if category_key in self.categories:
+            if "alternative_products" not in self.categories[category_key]:
+                self.categories[category_key]["alternative_products"] = {}
+            
+            self.categories[category_key]["alternative_products"][str(item_no)] = alternative_product
+            self.save_categories()
+            return True
+        return False
+    
     def update_category_info(self, category_number, name=None, description=None, action=None, color=None):
         """Update categorie informatie."""
         category_key = f"category_{category_number}"
@@ -192,6 +231,7 @@ class CategoryManager:
             "CATEGORY_1_ITEMS": [],
             "CATEGORY_2_ITEMS": [],
             "CATEGORY_3_ITEMS": [],
+            "CATEGORY_4_ITEMS": [],
             "CATEGORIES": {},
             "EMAIL_TEMPLATES": {}
         }
@@ -216,11 +256,14 @@ def main():
     print("=" * 50)
     
     # Toon huidige categorieën
-    for i in range(1, 4):
+    for i in range(1, 5):
         print(f"\n📋 Categorie {i}: {cm.get_category_name(i)}")
         print(f"   Actie: {cm.get_category_action(i)}")
         print(f"   Items: {len(cm.get_all_items_in_category(i))}")
         print(f"   Voorbeelden: {cm.get_all_items_in_category(i)[:3]}")
+        if i == 4:
+            alternative = cm.get_alternative_product(i)
+            print(f"   Alternatief product: {alternative if alternative else 'Niet ingesteld'}")
     
     # Test item toevoegen
     print(f"\n➕ Voeg item 99999 toe aan categorie 1...")

@@ -38,7 +38,8 @@ except ImportError:
         'border': '000000',
         'category_1': 'FF6B6B',
         'category_2': '4ECDC4',
-        'category_3': 'FFA500'
+        'category_3': 'FFA500',
+        'category_4': '9B59B6'
     }
     COLUMN_WIDTHS = [15, 40, 12, 12, 15, 40, 12, 12, 20]
     LOG_FILE = "backorder_analyzer.log"
@@ -182,21 +183,24 @@ def categorize_backorder_items(df):
             # Geen CategoryManager beschikbaar - alle artikelen krijgen geen categorie
             return None
     
+    # Maak een kopie van de DataFrame om pandas warnings te voorkomen
+    df_copy = df.copy()
+    
     # Voeg categorie toe aan DataFrame
-    df['Category'] = df['Item No.'].apply(get_category)
+    df_copy['Category'] = df_copy['Item No.'].apply(get_category)
     
     # Bepaal categorie namen en acties
-    df['Category_Name'] = df['Category'].apply(lambda x: 
-        category_manager.get_category_name(x) if category_manager and x is not None 
+    df_copy['Category_Name'] = df_copy['Category'].apply(lambda x: 
+        category_manager.get_category_name(x) if category_manager 
         else 'Geen categorie'
     )
     
-    df['Category_Action'] = df['Category'].apply(lambda x: 
-        category_manager.get_category_action(x) if category_manager and x is not None 
+    df_copy['Category_Action'] = df_copy['Category'].apply(lambda x: 
+        category_manager.get_category_action(x) if category_manager 
         else 'Behoud backorder'
     )
     
-    return df
+    return df_copy
 
 def group_by_sales_order(df):
     """Groepeer data per Sales Order en categoriseer artikelen."""
@@ -261,6 +265,36 @@ def group_by_sales_order(df):
     
     return grouped_data
 
+def shorten_url(url):
+    """Verkort een URL door alleen het domein en belangrijke delen te behouden."""
+    if not url or not isinstance(url, str):
+        return url
+    
+    # Verwijder protocol
+    if url.startswith('http://'):
+        url = url[7:]
+    elif url.startswith('https://'):
+        url = url[8:]
+    
+    # Verwijder www. als aanwezig
+    if url.startswith('www.'):
+        url = url[4:]
+    
+    # Als de URL nog steeds te lang is, behoud alleen het domein en eerste pad
+    if len(url) > 50:
+        parts = url.split('/')
+        if len(parts) > 1:
+            # Behoud domein + eerste pad
+            shortened = '/'.join(parts[:2])
+            if len(shortened) > 50:
+                # Als nog steeds te lang, behoud alleen domein
+                shortened = parts[0]
+            return shortened
+        else:
+            return parts[0]
+    
+    return url
+
 def generate_email_content(item_data, category):
     """Genereer e-mail content voor een artikel."""
     if category not in EMAIL_TEMPLATES:
@@ -283,30 +317,32 @@ def generate_email_content(item_data, category):
             # Categorie 1: Link naar fabrikant
             manufacturer_link = category_manager.get_item_link(item_data['Item No.'], 'fabrikant')
             if manufacturer_link:
-                email_data['manufacturer_link'] = manufacturer_link
+                email_data['manufacturer_message'] = f"Wij raden u aan om dit artikel direct bij de fabrikant te bestellen:\n🔗 {shorten_url(manufacturer_link)} (verkorte link)"
             else:
-                email_data['manufacturer_link'] = 'https://www.original-equipment-parts.com'
+                email_data['manufacturer_message'] = "Wij raden u aan om contact op te nemen met de fabrikant van dit artikel voor bestelling."
         elif category == 3:
             # Categorie 3: Link naar externe verkoper
             external_link = category_manager.get_item_link(item_data['Item No.'], 'externe_verkoper')
             if external_link:
-                email_data['external_seller_link'] = external_link
+                email_data['external_seller_message'] = f"Wij raden u aan om dit artikel bij een externe verkoper te bestellen:\n🔗 {shorten_url(external_link)} (verkorte link)"
             else:
-                email_data['external_seller_link'] = 'https://www.autodoc.nl'
+                email_data['external_seller_message'] = "Wij raden u aan om een externe verkoper te zoeken voor dit artikel."
     else:
         # Fallback naar oude methode
         if category == 1:
             manufacturer_links = template.get('manufacturer_links', {})
-            email_data['manufacturer_link'] = manufacturer_links.get(
+            link = manufacturer_links.get(
                 item_data['Item No.'], 
                 manufacturer_links.get('default', 'https://www.original-equipment-parts.com')
             )
+            email_data['manufacturer_message'] = f"Wij raden u aan om dit artikel direct bij de fabrikant te bestellen:\n🔗 {shorten_url(link)} (verkorte link)"
         elif category == 3:
             external_links = template.get('external_seller_links', {})
-            email_data['external_seller_link'] = external_links.get(
+            link = external_links.get(
                 item_data['Item No.'], 
                 external_links.get('default', 'https://www.autodoc.nl')
             )
+            email_data['external_seller_message'] = f"Wij raden u aan om dit artikel bij een externe verkoper te bestellen:\n🔗 {shorten_url(link)} (verkorte link)"
     
     # Genereer e-mail content
     subject = template['subject'].format(**email_data)
@@ -336,7 +372,9 @@ def create_excel_workbook(grouped_data):
         'order_header': PatternFill(start_color=COLORS['order_header'], end_color=COLORS['order_header'], fill_type='solid'),
         'category_1': PatternFill(start_color=COLORS['category_1'], end_color=COLORS['category_1'], fill_type='solid'),
         'category_2': PatternFill(start_color=COLORS['category_2'], end_color=COLORS['category_2'], fill_type='solid'),
-        'category_3': PatternFill(start_color=COLORS['category_3'], end_color=COLORS['category_3'], fill_type='solid')
+        'category_3': PatternFill(start_color=COLORS['category_3'], end_color=COLORS['category_3'], fill_type='solid'),
+        'category_4': PatternFill(start_color=COLORS['category_4'], end_color=COLORS['category_4'], fill_type='solid'),
+        'no_category': PatternFill(start_color=COLORS['backorder'], end_color=COLORS['backorder'], fill_type='solid')
     }
     
     # Definieer borders
@@ -466,11 +504,11 @@ def create_excel_workbook(grouped_data):
                 ws.cell(row=current_row, column=6, value=action)
                 
                 # Styling met categorie kleur
-                if category is not None:
-                    category_color = colors[f'category_{category}']
+                if category is not None and not pd.isna(category):
+                    category_color = colors[f'category_{int(category)}']
                 else:
                     # Default kleur voor artikelen zonder categorie
-                    category_color = colors['backorder']
+                    category_color = colors['no_category']
                 
                 for col in range(1, 7):
                     cell = ws.cell(row=current_row, column=col)
